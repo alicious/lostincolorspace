@@ -1,18 +1,17 @@
 #include <string.h>
 
-#define PULSE_LENGTH 3000
+#define PULSE_LENGTH 2000
 #define INTAKE_FACE 0
 #define CHANNELS 3
 #define COLOR_MSG_LENGTH ( CHANNELS * sizeof(byte) )
 
-enum state { PRIMARY, CHIP, GOAL, WIN, LOSE };
-state current_state = CHIP;
+enum state { PRIMARY, CHIP, GOAL, WINNER, LOSER };
+state currentState = CHIP;
 
 enum primary { R, G, B };
 int currentPrimary = R;
 
-byte primaryDoseMap[] = { 47,79,143,255,143,79 };
-//byte primaryDoseMap[] = { 31,63,127,255,127,63 };
+const byte primaryDoseMap[] = { 47,79,143,255,143,79 };
 
 enum button_clicks { SINGLE, DOUBLE, MULTI, LONG, NONE };
 button_clicks click = NONE;
@@ -57,7 +56,7 @@ void faceRGBsInit() {
 byte undoBuffer[] = { 0, 0, 0 };
 
 void primaryInit( primary p ) {
-  current_state = PRIMARY;
+  currentState = PRIMARY;
   faceRGBsInit();
  
   FOREACH_FACE(f) {
@@ -73,7 +72,7 @@ void setChip ( byte r, byte g, byte b ) {
 
   memcpy ( undoBuffer, faceRGBs[1], 3 );
 
-  current_state = CHIP;
+  currentState = CHIP;
 
   FOREACH_FACE(f) {
     faceRGBs[f][R] = r; 
@@ -136,7 +135,7 @@ void loop() {
     }
   }
 
-  switch ( current_state ) {
+  switch ( currentState ) {
     case CHIP:
       chipLoop();
       break;
@@ -145,30 +144,19 @@ void loop() {
       break;
     case GOAL:
       goalLoop();
+      break;
+    case WINNER:
+      winnerLoop();
+      break;
   }
 
   // DISPLAY
   FOREACH_FACE(f) {
-    if ( ( f == 0 ) && ( current_state == CHIP ) ) {
-      int pulseProgress = millis() % PULSE_LENGTH;
-      byte pulseMapped = map( pulseProgress, 0, PULSE_LENGTH, 0, 255 );
-      byte dimness = sin8_C( pulseMapped );
-      setColorOnFace( dim( WHITE, dimness ), f );
-    } else {
-      setColorOnFace(
-        makeColorRGB(
-          faceRGBs[f][R],
-          faceRGBs[f][G],
-          faceRGBs[f][B]
-        ), f
-      );
-    } 
     if ( msgLength[f] != 0 ) {
       markDatagramReadOnFace( f );
       msgLength[f] = 0;
     }
   }
-
 }
 
 void chipLoop() {
@@ -186,7 +174,7 @@ void chipLoop() {
     } else if ( ( t == SEND_COLOR ) && ( f == INTAKE_FACE ) ) {
       mixIn( m[0], m[1], m[2] );
     } else if ( t == WIN ) {
-      setChip( 0, 255, 0 );
+      currentState = WINNER;
     } else if ( t == LOSE ) {
       setChip( 255, 0, 0 );
     }
@@ -214,8 +202,23 @@ void chipLoop() {
       }
       break;
     case LONG:
-      current_state = GOAL;
+      currentState = GOAL;
+      break;
   }
+
+  // DISPLAY
+  FOREACH_FACE(f) {
+    if ( f != INTAKE_FACE ) {
+      Color rgb = makeColorRGB( faceRGBs[f][R], faceRGBs[f][G], faceRGBs[f][B] );
+      setColorOnFace( rgb, f );
+    } else {
+      int pulseProgress = millis() % PULSE_LENGTH;
+      byte pulseMapped = map( pulseProgress, 0, PULSE_LENGTH, 0, 255 );
+      byte dimness = sin8_C( pulseMapped );
+      setColorOnFace( dim( WHITE, dimness ), f );
+    }
+  }
+  
 }
 
 void primaryLoop() {
@@ -240,6 +243,12 @@ void primaryLoop() {
       cyclePrimary();
     }
   }
+
+  // DISPLAY
+  FOREACH_FACE(f) {
+    Color rgb = makeColorRGB( faceRGBs[f][R], faceRGBs[f][G], faceRGBs[f][B] );
+    setColorOnFace( rgb, f );
+  }
 }
 
 void goalLoop() {
@@ -250,7 +259,7 @@ void goalLoop() {
     if ( t == REQUEST ) {
       const byte* m = getMessage(f);
       byte result = checkColor( m[0], m[1], m[2] );
-      if ( result < 10 ) {
+      if ( result < 100 ) {
         sendMessage( WIN, NULL, 0, f );
       } else {
         sendMessage( LOSE, NULL, 0, f );
@@ -260,8 +269,31 @@ void goalLoop() {
 
   // CLICK HANDLING
   if ( click == LONG ) {
-    current_state = CHIP;
+    currentState = CHIP;
   }
+
+  // DISPLAY
+  FOREACH_FACE(f) {
+    Color rgb = makeColorRGB( faceRGBs[f][R], faceRGBs[f][G], faceRGBs[f][B] );
+    setColorOnFace( rgb, f );
+  }
+
+}
+
+void winnerLoop() {
+  if ( isAlone() ) {
+    setChip( faceRGBs[1][R], faceRGBs[1][G], faceRGBs[1][B] );
+  }
+
+  FOREACH_FACE(f) {
+    Color rgb = makeColorRGB( faceRGBs[f][R], faceRGBs[f][G], faceRGBs[f][B] );
+    if ( ( ( millis()/50 ) % 6 )  == f ) {
+      setColorOnFace( rgb, f );
+    } else {
+      setColorOnFace( OFF, f );
+    }
+  }
+
 }
 
 byte checkColor( byte r, byte g, byte b ) {
