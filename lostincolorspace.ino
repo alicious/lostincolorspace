@@ -5,21 +5,65 @@
 #define CHANNELS 3
 #define COLOR_MSG_LENGTH ( CHANNELS * sizeof(byte) )
 
-enum state { PRIMARY, CHIP, GOAL, WINNER, LOSER };
-state currentState = CHIP;
+// BLINK STATES
+const byte PRIMARY    = 0;
+const byte CHIP       = 1;
+const byte GOAL       = 2;
+const byte WINNER     = 3;
+const byte LOSER      = 4;
+const byte SETUP      = 5;
+const byte BOARD_INIT = 6;
+byte currentState = SETUP;
 
-enum primary { R, G, B };
-int currentPrimary = R;
+// PRIMARIES 
+const byte R = 0;
+const byte G = 1;
+const byte B = 2;
+byte currentPrimary = R;
 
 const byte primaryDoseMap[] = { 47,79,143,255,143,79 };
 
-enum button_clicks { SINGLE, DOUBLE, MULTI, LONG, NONE };
-button_clicks click = NONE;
+// BUTTON CLICKS
+typedef byte buttonClick;
+const buttonClick SINGLE = 0;
+const buttonClick DOUBLE = 1;
+const buttonClick MULTI  = 2;
+const buttonClick LONG   = 3;
+const buttonClick NONE   = 4;
+buttonClick click = NONE;
 
-enum messageType { REQUEST, SEND_COLOR, SET_PRIMARY, WIN, LOSE, NO_MESSAGE };
-enum primaryMsg { SET_GREEN, SET_BLUE, SET_GREEN_AND_BLUE };
+// MESSAGE TYPES
+typedef byte messageType;
+const messageType REQUEST     = 0;
+const messageType SEND_COLOR  = 1;
+const messageType SET_PRIMARY = 2;
+const messageType WIN         = 4;
+const messageType LOSE        = 5;
+const messageType NO_MESSAGE  = 6;
+
 const byte* msg[6] = { NULL,NULL,NULL,NULL,NULL,NULL };
 byte msgLength[] = { 0,0,0,0,0,0 };
+
+bool requestSent = true;
+
+// BOARD INIT MESSAGES
+typedef byte boardInitMsg;
+const boardInitMsg SET_GREEN          = 0;
+const boardInitMsg SET_BLUE           = 1;
+const boardInitMsg SET_BLANK          = 3;
+
+// TEST RESULTS
+typedef byte testResult;
+const testResult CLOSE_ENOUGH = 0;
+const testResult NEED_RED     = 1;
+const testResult NEED_GREEN   = 2;
+const testResult NEED_BLUE    = 3;
+
+testResult loseCondition;
+unsigned long loseAnimationStart;
+
+
+// MESSAGE PASSING FUNCTIONS
 
 // convenience function for sendDatagramOnFace() that includes a message type
 int sendMessage( messageType t, const void *data, byte len , byte face ) { 
@@ -44,24 +88,19 @@ messageType getMessageType( byte f ) {
   return msg[f][0];
 }
 
-byte faceRGBs[6][CHANNELS];
-void faceRGBsInit() {
-  FOREACH_FACE(f) {
-    for (int i = 0; i < CHANNELS; i++) {
-      faceRGBs[f][i] = 0;
-    }
+byte rgb[CHANNELS];
+void rgbInit() {
+  for (int i = 0; i < CHANNELS; i++) {
+    rgb[i] = 0;
   }
 }
 
 byte undoBuffer[] = { 0, 0, 0 };
 
-void primaryInit( primary p ) {
+void primaryInit( byte p ) {
   currentState = PRIMARY;
-  faceRGBsInit();
- 
-  FOREACH_FACE(f) {
-    faceRGBs[f][p] = primaryDoseMap[f];
-  }
+  currentPrimary = p;
+  rgbInit();
 }
 
 void randChipInit() {
@@ -70,40 +109,30 @@ void randChipInit() {
 
 void setChip ( byte r, byte g, byte b ) {
 
-  memcpy ( undoBuffer, faceRGBs[1], 3 );
+  memcpy ( undoBuffer, rgb, 3 );
 
   currentState = CHIP;
 
-  FOREACH_FACE(f) {
-    faceRGBs[f][R] = r; 
-    faceRGBs[f][G] = g; 
-    faceRGBs[f][B] = b;
-  }
+  rgb[R] = r; 
+  rgb[G] = g; 
+  rgb[B] = b;
 }
 
 void setPrimary( const byte* m, byte f ) {
-      byte setupMsg;
-      if ( *m == SET_GREEN_AND_BLUE ) {
-        primaryInit( G );
-        setupMsg = SET_BLUE;
-        FOREACH_FACE(x) {
-          if ( (x != f) && (!isValueReceivedOnFaceExpired(x)) ) {
-            sendMessage ( SET_PRIMARY, &setupMsg, 1, x );
-            break;
-          }
-        }
-      } else if ( *m == SET_GREEN ) {
-        primaryInit( G );
-      } else if ( *m == SET_BLUE ) {
-        primaryInit( B );
-      }
+    byte setupMsg;
+
+    if ( *m == SET_GREEN ) {
+      primaryInit( G );
+    } else if ( *m == SET_BLUE ) {
+      primaryInit( B );
+    }
 }
 
 void mixIn ( unsigned int r, unsigned int g, unsigned int b ) {
 
-  unsigned int r2 = r + (unsigned int)faceRGBs[1][R];
-  unsigned int g2 = g + (unsigned int)faceRGBs[1][G];
-  unsigned int b2 = b + (unsigned int)faceRGBs[1][B];
+  unsigned int r2 = r + (unsigned int)rgb[R];
+  unsigned int g2 = g + (unsigned int)rgb[G];
+  unsigned int b2 = b + (unsigned int)rgb[B];
 
   auto big = biggest(r2, g2, b2);
 
@@ -117,23 +146,24 @@ void mixIn ( unsigned int r, unsigned int g, unsigned int b ) {
 // MAIN LOOPS
 void setup() {
   randomize();
-  randChipInit();
+  //randChipInit();
+  rgbInit();
 }
 
 void loop() {
-  
-  if ( buttonSingleClicked() ) click = SINGLE;
-  else if ( buttonDoubleClicked() ) click = DOUBLE;
-  else if ( buttonMultiClicked() ) click = MULTI;
-  else if ( buttonLongPressed() ) click = LONG;
-  else click = NONE;
 
   FOREACH_FACE(f) {
     if ( isDatagramReadyOnFace(f) ) {
-      msgLength[f] = getDatagramLengthOnFace(f);
-      msg[f] = getDatagramOnFace(f);
+        msgLength[f] = getDatagramLengthOnFace(f);
+        msg[f] = getDatagramOnFace(f);
     }
   }
+  
+  if ( buttonSingleClicked() ) click = SINGLE;
+  else if ( buttonDoubleClicked() ) setChip( 0, 0, 0 );
+  else if ( buttonMultiClicked() ) makePrimaryBank();
+  else if ( buttonLongPressed() ) click = LONG;
+  else click = NONE;
 
   switch ( currentState ) {
     case CHIP:
@@ -148,6 +178,12 @@ void loop() {
     case WINNER:
       winnerLoop();
       break;
+    case LOSER:
+      loserLoop();
+      break;
+    case SETUP:
+      setupLoop();
+      break;
   }
 
   // DISPLAY
@@ -159,7 +195,18 @@ void loop() {
   }
 }
 
+void setupLoop() {
+  if ( millis() > 1000 ) currentState = CHIP;
+}
+
 void chipLoop() {
+
+  if ( isValueReceivedOnFaceExpired(INTAKE_FACE) ) {
+    requestSent = false;
+  } else if ( !requestSent ) {
+    sendMessage( REQUEST, rgb, 3, INTAKE_FACE );
+    requestSent = true;
+  }
 
   // MESSAGE HANDLING
   FOREACH_FACE(f) {
@@ -170,35 +217,32 @@ void chipLoop() {
     if ( t == SET_PRIMARY ) {
       setPrimary( m, f );
     } else if ( t == REQUEST ) {
-      sendMessage( SEND_COLOR, faceRGBs[f], COLOR_MSG_LENGTH, f );
+      sendMessage( SEND_COLOR, rgb, COLOR_MSG_LENGTH, f );
     } else if ( ( t == SEND_COLOR ) && ( f == INTAKE_FACE ) ) {
-      mixIn( m[0], m[1], m[2] );
+      mixIn( m[R], m[G], m[B] );
     } else if ( t == WIN ) {
       currentState = WINNER;
     } else if ( t == LOSE ) {
-      setChip( 255, 0, 0 );
+      currentState = LOSER;
+      loseAnimationStart = millis();
     }
   }
   
   // CLICK HANDLING
   switch ( click ) {
     case SINGLE: 
-      if ( isValueReceivedOnFaceExpired(0) ) {
-        setChip( undoBuffer[0], undoBuffer[1], undoBuffer[2] );
-      } else {
-        sendMessage( REQUEST, faceRGBs[1], 3, INTAKE_FACE );
-      }
+      setChip( undoBuffer[R], undoBuffer[G], undoBuffer[B] );
       break;
     case DOUBLE:
       if ( isAlone() ) {
-        randChipInit();
+        rgbInit();
       } else {
         makePrimaryBank();
       }
       break;
     case MULTI:
       if ( isAlone() ) {
-        faceRGBsInit();
+        randChipInit();
       }
       break;
     case LONG:
@@ -209,13 +253,10 @@ void chipLoop() {
   // DISPLAY
   FOREACH_FACE(f) {
     if ( f != INTAKE_FACE ) {
-      Color rgb = makeColorRGB( faceRGBs[f][R], faceRGBs[f][G], faceRGBs[f][B] );
-      setColorOnFace( rgb, f );
+      Color displayColor = makeColorRGB( rgb[R], rgb[G], rgb[B] );
+      setColorOnFace( displayColor, f );
     } else {
-      int pulseProgress = millis() % PULSE_LENGTH;
-      byte pulseMapped = map( pulseProgress, 0, PULSE_LENGTH, 0, 255 );
-      byte dimness = sin8_C( pulseMapped );
-      setColorOnFace( dim( WHITE, dimness ), f );
+      pulse( WHITE, f );
     }
   }
   
@@ -223,31 +264,32 @@ void chipLoop() {
 
 void primaryLoop() {
 
-  // MESSAGE HANDLING
+  // MESSAGE HANDLING & DISPLAY
   FOREACH_FACE(f) {
+    rgb[currentPrimary] = primaryDoseMap[f];
+
     messageType t = getMessageType(f);
     if ( t == SET_PRIMARY ) {
       const byte* m = getMessage(f);
       setPrimary( m, f );
     }
     if ( t == REQUEST ) {
-      sendMessage( SEND_COLOR, faceRGBs[f], COLOR_MSG_LENGTH, f );
+      sendMessage( SEND_COLOR, rgb, COLOR_MSG_LENGTH, f );
     }
+    Color displayColor = makeColorRGB( rgb[R], rgb[G], rgb[B] );
+    setColorOnFace( displayColor, f );
   }
 
   // CLICK HANDLING
   if ( click == DOUBLE ) {
-    if ( isAlone() ) {
       randChipInit();
-    } else {
-      cyclePrimary();
-    }
+  }
+  if ( click == SINGLE ) {
+    cyclePrimary();
   }
 
   // DISPLAY
   FOREACH_FACE(f) {
-    Color rgb = makeColorRGB( faceRGBs[f][R], faceRGBs[f][G], faceRGBs[f][B] );
-    setColorOnFace( rgb, f );
   }
 }
 
@@ -258,11 +300,11 @@ void goalLoop() {
     messageType t = getMessageType(f);
     if ( t == REQUEST ) {
       const byte* m = getMessage(f);
-      byte result = checkColor( m[0], m[1], m[2] );
-      if ( result < 100 ) {
+      byte result = checkColor( m[R], m[G], m[B] );
+      if ( result == CLOSE_ENOUGH ) {
         sendMessage( WIN, NULL, 0, f );
       } else {
-        sendMessage( LOSE, NULL, 0, f );
+        sendMessage( LOSE, &result, 1, f );
       }
     }
   }
@@ -271,24 +313,28 @@ void goalLoop() {
   if ( click == LONG ) {
     currentState = CHIP;
   }
+  if ( click == DOUBLE ) {
+    randChipInit();
+    currentState = GOAL;
+  }
 
   // DISPLAY
   FOREACH_FACE(f) {
-    Color rgb = makeColorRGB( faceRGBs[f][R], faceRGBs[f][G], faceRGBs[f][B] );
-    setColorOnFace( rgb, f );
+    Color displayColor = makeColorRGB( rgb[R], rgb[G], rgb[B] );
+    setColorOnFace( displayColor, f );
   }
 
 }
 
 void winnerLoop() {
   if ( isAlone() ) {
-    setChip( faceRGBs[1][R], faceRGBs[1][G], faceRGBs[1][B] );
+    setChip( rgb[R], rgb[G], rgb[B] );
   }
 
   FOREACH_FACE(f) {
-    Color rgb = makeColorRGB( faceRGBs[f][R], faceRGBs[f][G], faceRGBs[f][B] );
+    Color displayColor = makeColorRGB( rgb[R], rgb[G], rgb[B] );
     if ( ( ( millis()/50 ) % 6 )  == f ) {
-      setColorOnFace( rgb, f );
+      setColorOnFace( displayColor, f );
     } else {
       setColorOnFace( OFF, f );
     }
@@ -296,34 +342,81 @@ void winnerLoop() {
 
 }
 
-byte checkColor( byte r, byte g, byte b ) {
-  byte diff = abs( faceRGBs[1][0] - r);
-  diff += abs( faceRGBs[1][1] - g); 
-  diff += abs( faceRGBs[1][2] - b ); 
-  return diff;
+void loserLoop() {
+
+  if ( isAlone() ) {
+    setChip( rgb[R], rgb[G], rgb[B] );
+  }
+ 
+  unsigned long animationElapsed = millis() - loseAnimationStart; 
+  if ( animationElapsed > 1000 ) {
+    FOREACH_FACE(f) {
+      pulse( RED, f );
+    }
+  } else {
+    FOREACH_FACE(f) {
+      if ( ( ( millis()/50 ) % 6 )  == f ) {
+        setColorOnFace( RED, f );
+      } else {
+        setColorOnFace( OFF, f );
+      }
+    }
+  }
+}
+
+void pulse( Color col, byte f ) {
+  int pulseProgress = millis() % PULSE_LENGTH;
+  byte pulseMapped = map( pulseProgress, 0, PULSE_LENGTH, 0, 255 );
+  byte dimness = sin8_C( pulseMapped );
+  setColorOnFace( dim( col, dimness ), f );
+}
+
+testResult checkColor( byte r, byte g, byte b ) {
+  int rdiff = ((int)rgb[R]) - r;
+  int gdiff = ((int)rgb[G]) - g;
+  int bdiff = ((int)rgb[B]) - b;
+
+  //float colorDistance  = sqrt( pow( rdiff, 2 ) + pow( gdiff, 2 ) + pow( bdiff, 2 ) ); 
+  unsigned int colorDistance = (rdiff * rdiff) + (gdiff * gdiff) + (bdiff * bdiff);
+  testResult result;
+  
+  if ( colorDistance < 8000 ) {
+    return CLOSE_ENOUGH;
+  } else {
+    if ( ( gdiff > rdiff) && ( gdiff > bdiff ) ) {
+      result = NEED_GREEN;
+    } else if ( ( bdiff > rdiff ) && ( bdiff > gdiff ) ) {
+      result = NEED_BLUE;
+    } else {
+      result = NEED_RED;
+    }
+
+    loseCondition = result;
+    return result;
+  }
 }
 
 void makePrimaryBank() {
   primaryInit( R );
   
   byte neighborCount = 0;
-  byte neighbors[2];
+  byte neighbors[2] = { 7, 7 }; // aka undefined
   FOREACH_FACE(f) { 
     if ( !isValueReceivedOnFaceExpired(f) ) {
-      neighbors[neighborCount] = f;
-      neighborCount++; 
-      if ( neighborCount == 2 ) break;
+      if ( neighborCount < 2 ) {
+        neighbors[neighborCount] = f;
+        neighborCount++; 
+      } else {
+        break;
+      }
     }
   }
 
-  if ( neighborCount == 1 ) {
-    byte setupMsg = SET_GREEN_AND_BLUE;
-    sendMessage ( SET_PRIMARY, &setupMsg, 1, neighbors[0] );
-  } else if ( neighborCount == 2 ) {
+  if ( neighborCount == 2 ) {
     byte setupMsg = SET_GREEN;
-    sendMessage ( SET_PRIMARY, &setupMsg, 1, neighbors[0] );
+    sendMessage( SET_PRIMARY, &setupMsg, 1, neighbors[0] );
     setupMsg = SET_BLUE;
-    sendMessage ( SET_PRIMARY, &setupMsg, 1, neighbors[1] );
+    sendMessage( SET_PRIMARY, &setupMsg, 1, neighbors[1] );
   }
 }
 
