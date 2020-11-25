@@ -14,7 +14,21 @@ const byte WINNER     = 3;
 const byte LOSER      = 4;
 const byte SETUP      = 5;
 const byte BOARD_INIT = 6;
+const byte SCOREBOARD = 7;
 byte currentState = SETUP;
+
+const unsigned long GAMETIMER_MS = 1000 * 60 * 2;
+//#define GAMETIMER_MS 120000
+Timer gameTimer;
+
+#define SCORE_DISPLAY_INTERVAL 500
+long scoreDisplayStart = 0;
+
+#define COUNTDOWN_MS 2500
+Timer countDown;
+
+#define MAX_LEVEL 10
+byte chipLevel = 0; 
 
 // PRIMARIES 
 const byte R = 0;
@@ -27,7 +41,7 @@ const byte primaryDoseMap[] = { 47,79,143,255,143,79 };
 // BUTTON CLICKS
 typedef byte buttonClick;
 const buttonClick SINGLE = 0;
-const buttonClick MULTI  = 1;
+const buttonClick DOUBLE = 1;
 const buttonClick LONG   = 2;
 const buttonClick NONE   = 3;
 buttonClick click = NONE;
@@ -45,14 +59,16 @@ const messageType NO_MESSAGE  = 6;
 const byte* msg[6] = { NULL,NULL,NULL,NULL,NULL,NULL };
 byte msgLength[] = { 0,0,0,0,0,0 };
 
+byte winnerDock = 7; // aka undefined
 bool requestSent = true;
 
 // BOARD INIT MESSAGES
 typedef byte boardInitMsg;
-const boardInitMsg SET_GREEN          = 0;
-const boardInitMsg SET_BLUE           = 1;
+const boardInitMsg SET_RED            = 0;
+const boardInitMsg SET_GREEN          = 1;
+const boardInitMsg SET_BLUE           = 2;
 
-byte neighbors[2] = { 7, 7 }; // aka undefined
+byte neighbors[2] = { 7, 7 }; // aka undefined (the "seventh" face)
 byte neighborCount = 0;
 
 // TEST RESULTS
@@ -62,8 +78,7 @@ const testResult NEED_RED     = 1;
 const testResult NEED_GREEN   = 2;
 const testResult NEED_BLUE    = 3;
 
-testResult loseCondition;
-unsigned long loseAnimationStart;
+Color colorNeeded = WHITE;
 
 byte rgb[CHANNELS];
 void rgbInit() {
@@ -107,19 +122,27 @@ void primaryInit( byte p ) {
   rgbInit();
 }
 
-void randChipInit() {
-  setChip( random(255),random(255),random(255) );
-}
-
-void setChip ( byte r, byte g, byte b ) {
+void setChip ( int32_t r, int32_t g, int32_t b ) {
 
   memcpy ( undoBuffer, rgb, 3 );
 
-  currentState = CHIP;
+  if ( ( r == 0) && ( g == 0 ) && ( b == 0 ) ) {
+    rgb[R] = 0;
+    rgb[G] = 0;
+    rgb[B] = 0;
+  } else {
+    auto big = biggest( r, g, b );
+    rgb[R] = map( r, 0, big, 0, 255 );
+    rgb[G] = map( g, 0, big, 0, 255 );
+    rgb[B] = map( b, 0, big, 0, 255 );
+  }
 
-  rgb[R] = r; 
-  rgb[G] = g; 
-  rgb[B] = b;
+  currentState = CHIP;
+}
+
+void randGoalInit() {
+  setChip( random(255),random(255),random(255) );
+  currentState = GOAL;
 }
 
 void mixIn ( int32_t r, int32_t g, int32_t b ) {
@@ -127,12 +150,6 @@ void mixIn ( int32_t r, int32_t g, int32_t b ) {
   int32_t r2 = r + (int32_t)rgb[R];
   int32_t g2 = g + (int32_t)rgb[G];
   int32_t b2 = b + (int32_t)rgb[B];
-
-  auto big = biggest(r2, g2, b2);
-
-  r2 = map( r2, 0, big, 0, 255 );
-  g2 = map( g2, 0, big, 0, 255 );
-  b2 = map( b2, 0, big, 0, 255 );
   
   setChip( r2, g2, b2 );
 }
@@ -140,8 +157,8 @@ void mixIn ( int32_t r, int32_t g, int32_t b ) {
 // MAIN LOOPS
 void setup() {
   randomize();
-  //randChipInit();
   rgbInit();
+  gameTimer.never();
 }
 
 void loop() {
@@ -158,7 +175,9 @@ void loop() {
       const byte* m = getMessage(f);
 
       if ( t == SET_PRIMARY ) {
-        if ( *m == SET_GREEN ) {
+        if ( *m == SET_RED ) {
+          primaryInit( R );
+        } else if ( *m == SET_GREEN ) {
           primaryInit( G );
         } else if ( *m == SET_BLUE ) {
           primaryInit( B );
@@ -170,7 +189,7 @@ void loop() {
   }
   
   if ( buttonSingleClicked() ) click = SINGLE;
-  else if ( buttonDoubleClicked() ) setChip( 0, 0, 0 );
+  else if ( buttonDoubleClicked() ) click = DOUBLE;
   else if ( buttonMultiClicked() ) boardInit();
   else if ( buttonLongPressed() ) click = LONG;
   else click = NONE;
@@ -194,6 +213,9 @@ void loop() {
     case SETUP:
       setupLoop();
       break;
+    case SCOREBOARD:
+      scoreboardLoop();
+      break;
   }
 
   // DISPLAY
@@ -205,12 +227,16 @@ void loop() {
   }
 }
 
-void setupLoop() {
-  if ( millis() > 1000 ) currentState = CHIP;
-}
-
 void chipLoop() {
 
+  if ( gameTimer.isExpired() || chipLevel == MAX_LEVEL) {
+    currentState = SCOREBOARD;
+    scoreDisplayStart = millis();
+    setColor( OFF );
+    return;
+  }
+
+  // try to get color on intake face
   if ( isValueReceivedOnFaceExpired(INTAKE_FACE) ) {
     requestSent = false;
   } else if ( !requestSent ) {
@@ -230,10 +256,20 @@ void chipLoop() {
       mixIn( m[R], m[G], m[B] );
     } else if ( t == WIN ) {
       currentState = WINNER;
+      chipLevel++;
     } else if ( t == LOSE ) {
       currentState = LOSER;
-      loseCondition = *m;
-      loseAnimationStart = millis();
+      switch ( *m ) {
+        case NEED_RED:
+          colorNeeded = RED;
+          break;
+        case NEED_GREEN:
+          colorNeeded = GREEN;
+          break;
+        case NEED_BLUE:
+          colorNeeded = BLUE;
+          break;
+      }
     }
   }
   
@@ -242,19 +278,32 @@ void chipLoop() {
     case SINGLE: 
       setChip( undoBuffer[R], undoBuffer[G], undoBuffer[B] );
       break;
+    case DOUBLE:
+      setChip( 0, 0, 0 );
+      break;
     case LONG:
-      currentState = GOAL;
+      if ( ( rgb[R] + rgb[G] + rgb[B] ) == 0 ) {
+        gameTimer.set(GAMETIMER_MS);
+        countDown.set(COUNTDOWN_MS);
+        chipLevel = 0;
+      } else {
+        currentState = GOAL;
+      }
       break;
   }
 
   // DISPLAY
-  FOREACH_FACE(f) {
-    if ( f != INTAKE_FACE ) {
-      Color displayColor = makeColorRGB( rgb[R], rgb[G], rgb[B] );
-      setColorOnFace( displayColor, f );
-    } else {
-      pulse( WHITE, f );
+  if ( countDown.isExpired() ) {
+    FOREACH_FACE(f) {
+      if ( f != INTAKE_FACE ) {
+        Color displayColor = makeColorRGB( rgb[R], rgb[G], rgb[B] );
+        setColorOnFace( displayColor, f );
+      } else {
+        pulse( WHITE, f );
+      }
     }
+  } else {
+    countDownDisplay();
   }
   
 }
@@ -275,8 +324,14 @@ void primaryLoop() {
   }
 
   // CLICK HANDLING
-  if ( click == SINGLE ) {
-    cyclePrimary();
+  switch ( click ) {
+    case SINGLE: 
+      cyclePrimary();
+      break;
+    case DOUBLE:
+      cyclePrimary();
+      cyclePrimary();
+      break;
   }
 
   // DISPLAY
@@ -287,22 +342,33 @@ void primaryLoop() {
 void goalLoop() {
 
   // MESSAGE HANDLING
-  FOREACH_FACE(f) {
-    messageType t = getMessageType(f);
-    if ( t == REQUEST ) {
-      const byte* m = getMessage(f);
-      byte result = checkColor( m[R], m[G], m[B] );
-      if ( result == CLOSE_ENOUGH ) {
-        sendMessage( WIN, NULL, 0, f );
-      } else {
-        sendMessage( LOSE, &result, 1, f );
+  if ( ( winnerDock < 7 ) && ( isValueReceivedOnFaceExpired( winnerDock ) ) ) {
+    winnerDock = 7;
+    randGoalInit();
+  } else {
+    FOREACH_FACE(f) {
+      messageType t = getMessageType(f);
+      if ( t == REQUEST ) {
+        const byte* m = getMessage(f);
+        byte result = checkColor( m[R], m[G], m[B] );
+        if ( result == CLOSE_ENOUGH ) {
+          sendMessage( WIN, NULL, 0, f );
+          winnerDock = f;
+        } else {
+          sendMessage( LOSE, &result, 1, f );
+        }
       }
     }
   }
 
   // CLICK HANDLING
-  if ( click == LONG ) {
-    currentState = CHIP;
+  switch ( click ) {
+    case DOUBLE:
+      randGoalInit();
+      break;
+    case LONG:
+      currentState = CHIP;
+      break;
   }
 
   // DISPLAY
@@ -315,7 +381,8 @@ void goalLoop() {
 
 void winnerLoop() {
   if ( isValueReceivedOnFaceExpired( INTAKE_FACE ) ) {
-    currentState = CHIP;
+    setChip( 0, 0, 0 );
+    //currentState = CHIP;
   }
 
   FOREACH_FACE(f) {
@@ -335,20 +402,39 @@ void loserLoop() {
     currentState = CHIP;
   }
    
-  unsigned long animationElapsed = millis() - loseAnimationStart; 
-  if ( animationElapsed > 1000 ) {
-    FOREACH_FACE(f) {
-      pulse( RED, f );
-    }
-  } else {
-    FOREACH_FACE(f) {
-      if ( ( ( millis()/50 ) % 6 )  == f ) {
-        setColorOnFace( RED, f );
-      } else {
-        setColorOnFace( OFF, f );
-      }
-    }
+  FOREACH_FACE(f) {
+    pulse( colorNeeded, f );
   }
+}
+
+void setupLoop() {
+  if ( millis() > 1000 ) currentState = CHIP;
+}
+
+void scoreboardLoop() {
+
+  long interval = ( millis() - scoreDisplayStart ) / SCORE_DISPLAY_INTERVAL + 1;
+
+  if ( click == DOUBLE ) {
+    setChip( 0, 0, 0 ); 
+    gameTimer.never();
+    chipLevel = 0;
+    return;
+  } 
+
+  if ( interval <= chipLevel ) {
+    if ( interval < 5 ) {
+      setColorOnFace( WHITE, interval );
+    } else if ( interval == 5 ) {
+      setColor( OFF );
+      setColorOnFace( RED, 5 );
+    } else {
+      setColorOnFace( WHITE, ( interval - 6 ) );
+    }  
+  }
+  /* 
+  */
+  //setColor( MAGENTA );
 }
 
 void pulse( Color col, byte f ) {
@@ -367,12 +453,14 @@ testResult checkColor( byte r, byte g, byte b ) {
   int32_t colorDistance = (rdiff * rdiff) + (gdiff * gdiff) + (bdiff * bdiff);
   testResult result;
 
-  if ( ( colorDistance < 8000 ) ) { 
+  if ( ( colorDistance < 7000 ) ) { // 8000 too easy 6000 too hard
     result = CLOSE_ENOUGH;
   } else {
-    if ( ( gdiff > rdiff) && ( gdiff > bdiff ) ) {
+    if ( ( ( gdiff != 0 ) && ( gdiff >= rdiff) && ( gdiff >= bdiff ) )
+       || ( ( rgb[R] == 0 ) && ( rgb[B] == 0 ) ) ) {
       result = NEED_GREEN;
-    } else if ( ( bdiff > rdiff ) && ( bdiff > gdiff ) ) {
+    } else if ( ( ( bdiff != 0 ) && ( bdiff >= rdiff ) && ( bdiff >= gdiff ) ) 
+      || ( ( rgb[R] == 0 ) && ( rgb[G] == 0 ) ) ) {
       result = NEED_BLUE;
     } else {
       result = NEED_RED;
@@ -408,24 +496,26 @@ void find2neighbors() {
 
 void boardInit() {
   
-  find2neighbors();
+  find2neighbors(); 
  
   if ( isAlone() ) {
-    randChipInit();
-    currentState = GOAL;
+    randGoalInit();
   } else if ( isDuo() ) {
     makeChipPrimaryPair();
   } else if ( isTriangle() ) {
     makePrimaryBank();
   } else {
-    // FIX set all blank
+    setChip( 0, 0, 0 );
+    FOREACH_FACE(f) { 
+      sendMessage( SET_BLANK, NULL, 0, f );
+    }
   }
 
 }
 
 bool isDuo() {
   if ( ( neighborCount == 1 ) && 
-       ( getLastValueReceivedOnFace(neighbors[0]) == 1) ) { 
+       ( getLastValueReceivedOnFace(neighbors[0]) == 1 ) ) { 
     return true;
   } else {
     return false;
@@ -442,6 +532,11 @@ bool isTriangle() {
 }
 
 void makeChipPrimaryPair() {
+  setChip( 0, 0, 0 );
+
+  FOREACH_FACE(f) {
+    sendMessage( SET_PRIMARY, &SET_RED, 1, f );
+  }
 }
 
 void makePrimaryBank() {
@@ -458,6 +553,20 @@ void makePrimaryBank() {
 void cyclePrimary() {
   currentPrimary = ( currentPrimary + 1 ) % CHANNELS;
   primaryInit(currentPrimary);
+}
+
+void countDownDisplay() {
+  uint32_t time = countDown.getRemaining();
+  
+  byte interval = COUNTDOWN_MS / 6;
+
+  if ( time >= ( 5 * interval ) ) setColor( WHITE );
+
+  FOREACH_FACE(f) {
+    if ( time < ( f * interval ) ) {
+      setColorOnFace( OFF, f );
+    }
+  }
 }
 
 int32_t biggest ( int32_t r, int32_t g, int32_t b ) {
