@@ -17,8 +17,7 @@ const byte BOARD_INIT = 6;
 const byte SCOREBOARD = 7;
 byte currentState = SETUP;
 
-const unsigned long GAMETIMER_MS = 1000 * 60 * 2;
-//#define GAMETIMER_MS 120000
+#define GAMETIMER_MS 120000
 Timer gameTimer;
 
 #define SCORE_DISPLAY_INTERVAL 500
