@@ -87,6 +87,12 @@ void rgbInit() {
 }
 
 byte undoBuffer[CHANNELS] = { 0, 0, 0 };
+  
+void undo() {
+  rgb[R] = undoBuffer[R];
+  rgb[G] = undoBuffer[G];
+  rgb[B] = undoBuffer[B];
+}
 
 
 // MESSAGE PASSING FUNCTIONS
@@ -121,27 +127,29 @@ void primaryInit( byte p ) {
   rgbInit();
 }
 
-void setChip ( int32_t r, int32_t g, int32_t b ) {
-
+void setBlank() {
+  currentState = CHIP;
   memcpy ( undoBuffer, rgb, 3 );
+  rgb[R] = 0;
+  rgb[G] = 0;
+  rgb[B] = 0;
+}
 
-  if ( ( r == 0) && ( g == 0 ) && ( b == 0 ) ) {
-    rgb[R] = 0;
-    rgb[G] = 0;
-    rgb[B] = 0;
-  } else {
+void randGoalInit() {
+  currentState = GOAL;
+  rgb[R] = random(255);
+  rgb[G] = random(255);
+  rgb[B] = random(255);
+  
+  setEqualized( random(255), random(255), random(255) );
+}
+
+void setEqualized( uint32_t r, uint32_t g, uint32_t b ) {
+    memcpy ( undoBuffer, rgb, 3 );
     auto big = biggest( r, g, b );
     rgb[R] = map( r, 0, big, 0, 255 );
     rgb[G] = map( g, 0, big, 0, 255 );
     rgb[B] = map( b, 0, big, 0, 255 );
-  }
-
-  currentState = CHIP;
-}
-
-void randGoalInit() {
-  setChip( random(255),random(255),random(255) );
-  currentState = GOAL;
 }
 
 void mixIn ( int32_t r, int32_t g, int32_t b ) {
@@ -150,7 +158,7 @@ void mixIn ( int32_t r, int32_t g, int32_t b ) {
   int32_t g2 = g + (int32_t)rgb[G];
   int32_t b2 = b + (int32_t)rgb[B];
   
-  setChip( r2, g2, b2 );
+  setEqualized( r2, g2, b2 );
 }
 
 // MAIN LOOPS
@@ -182,7 +190,7 @@ void loop() {
           primaryInit( B );
         }
       } else if ( t == SET_BLANK ) {
-        setChip( 0, 0, 0 );
+        setBlank();
       }
     }
   }
@@ -275,10 +283,10 @@ void chipLoop() {
   // CLICK HANDLING
   switch ( click ) {
     case SINGLE: 
-      setChip( undoBuffer[R], undoBuffer[G], undoBuffer[B] );
+      undo();
       break;
     case DOUBLE:
-      setChip( 0, 0, 0 );
+      setBlank();
       break;
     case LONG:
       if ( ( rgb[R] + rgb[G] + rgb[B] ) == 0 ) {
@@ -380,8 +388,7 @@ void goalLoop() {
 
 void winnerLoop() {
   if ( isValueReceivedOnFaceExpired( INTAKE_FACE ) ) {
-    setChip( 0, 0, 0 );
-    //currentState = CHIP;
+    setBlank();
   }
 
   FOREACH_FACE(f) {
@@ -414,8 +421,8 @@ void scoreboardLoop() {
 
   long interval = ( millis() - scoreDisplayStart ) / SCORE_DISPLAY_INTERVAL + 1;
 
-  if ( click == DOUBLE ) {
-    setChip( 0, 0, 0 ); 
+  if ( click == DOUBLE ) { // reset to a basic chip
+    setBlank();
     gameTimer.never();
     chipLevel = 0;
     return;
@@ -504,7 +511,7 @@ void boardInit() {
   } else if ( isTriangle() ) {
     makePrimaryBank();
   } else {
-    setChip( 0, 0, 0 );
+    setBlank();
     FOREACH_FACE(f) { 
       sendMessage( SET_BLANK, NULL, 0, f );
     }
@@ -531,7 +538,7 @@ bool isTriangle() {
 }
 
 void makeChipPrimaryPair() {
-  setChip( 0, 0, 0 );
+  setBlank();
 
   FOREACH_FACE(f) {
     sendMessage( SET_PRIMARY, &SET_RED, 1, f );
@@ -574,3 +581,5 @@ int32_t biggest ( int32_t r, int32_t g, int32_t b ) {
   if ( b > result ) result = b;
   return result;
 }
+
+
