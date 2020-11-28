@@ -32,6 +32,7 @@ const byte R = 0;
 const byte G = 1;
 const byte B = 2;
 byte currentPrimary = R;
+byte rotationOffset = 0;
 
 const byte primaryDoseMap[] = { 47,79,143,255,143,79 };
 
@@ -81,9 +82,8 @@ Color colorNeeded = WHITE;
 
 // BOARD INIT MESSAGES
 typedef byte boardInitMsg;
-const boardInitMsg SET_RED            = 0;
-const boardInitMsg SET_GREEN          = 1;
-const boardInitMsg SET_BLUE           = 2;
+const boardInitMsg SET_GREEN          = 0;
+const boardInitMsg SET_BLUE           = 1;
 
 byte neighbors[2] = { 7, 7 }; // aka undefined (the "seventh" face)
 byte neighborCount = 0;
@@ -109,11 +109,11 @@ void loop() {
       const byte* m = getMessage(f);
 
       if ( t == SET_PRIMARY ) {
-        if ( *m == SET_RED ) {
-          primaryInit( R );
-        } else if ( *m == SET_GREEN ) {
+        if ( *m == SET_GREEN ) {
+          rotationOffset = 6 - ( f + 1 );
           primaryInit( G );
         } else if ( *m == SET_BLUE ) {
+          rotationOffset = 6 - ( f + 2 );
           primaryInit( B );
         }
       } else if ( t == RESET_CHIP ) {
@@ -266,7 +266,7 @@ void primaryLoop() {
 
   // MESSAGE HANDLING & DISPLAY
   FOREACH_FACE(f) {
-    rgb[currentPrimary] = primaryDoseMap[f];
+    rgb[currentPrimary] = primaryDoseMap[(f+rotationOffset) % 6];
 
     messageType t = getMessageType(f);
 
@@ -475,7 +475,7 @@ byte countNeighbors() {
   return count;
 }
 
-void find2neighbors() {
+void boardInit() {
   if ( neighborCount > 2 ) {
     return;
   } else {
@@ -487,12 +487,12 @@ void find2neighbors() {
         whichNeighbor++; 
       }
     }
+    // make 6 and 0 adjacent in the same clockwise order as other pairs
+    if ( ( neighbors[0] == 0 ) && ( neighbors[1] == 5 ) ) {
+      neighbors[0] = 5;
+      neighbors[1] = 0;
+    }
   }
-}
-
-void boardInit() {
-  
-  find2neighbors(); 
  
   if ( isAlone() ) {
     randGoalInit();
@@ -522,7 +522,7 @@ bool isTriangle() {
   if ( ( neighborCount == 2 ) &&
        ( getLastValueReceivedOnFace( neighbors[0] ) == 2) &&   
        ( getLastValueReceivedOnFace( neighbors[1] ) == 2) &&   
-       ( ( ( neighbors[1] - neighbors[0] ) % 4 ) == 1 )
+       ( ( neighbors[0] == 5 ) || ( ( neighbors[1] - neighbors[0] ) == 1 ) )
      ) 
   { return true; } else { return false; }
 }
@@ -618,22 +618,17 @@ void mixIn ( int32_t r, int32_t g, int32_t b ) {
 }
 
 void makeChipPrimaryPair() {
-  resetChip();
+  primaryInit( R );
 
-  FOREACH_FACE(f) {
-    sendMessage( SET_PRIMARY, &SET_RED, 1, f );
-  }
+  sendMessage( RESET_CHIP, NULL, 0, neighbors[0] );
 }
 
 void makePrimaryBank() {
   primaryInit( R );
+  rotationOffset = ( 6 - neighbors[1] ) + 5;
 
-  find2neighbors(); 
-
-  byte setupMsg = SET_GREEN;
-  sendMessage( SET_PRIMARY, &setupMsg, 1, neighbors[0] );
-  setupMsg = SET_BLUE;
-  sendMessage( SET_PRIMARY, &setupMsg, 1, neighbors[1] );
+  sendMessage( SET_PRIMARY, &SET_GREEN, 1, neighbors[0] );
+  sendMessage( SET_PRIMARY, &SET_BLUE, 1, neighbors[1] );
 }
 void undo() {
   rgb[R] = undoBuffer[R];
