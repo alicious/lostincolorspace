@@ -14,13 +14,15 @@ Timer gameTimer;
 const byte PRIMARY    = 0;
 const byte CHIP       = 1;
 const byte GOAL       = 2;
-const byte WINNER     = 3;
-const byte LOSER      = 4;
-const byte SETUP      = 5;
-const byte BOARD_INIT = 6;
-const byte SCOREBOARD = 7;
-const byte COUNTDOWN  = 8;
+const byte SHH_GOAL   = 3;
+const byte WINNER     = 4;
+const byte LOSER      = 5;
+const byte SETUP      = 6;
+const byte BOARD_INIT = 7;
+const byte SCOREBOARD = 8;
+const byte COUNTDOWN  = 9;
 byte currentState = SETUP;
+bool goalHidden = false;
 
 #define MAX_LEVEL 10
 byte chipLevel = 0; 
@@ -85,82 +87,6 @@ const boardInitMsg SET_BLUE           = 2;
 
 byte neighbors[2] = { 7, 7 }; // aka undefined (the "seventh" face)
 byte neighborCount = 0;
-
-
-// MESSAGE PASSING FUNCTIONS
-
-// convenience function for sendDatagramOnFace() that includes a message type
-int sendMessage( messageType t, const void *data, byte len , byte face ) { 
-  if ( ( len + 1 ) > IR_DATAGRAM_LEN ) return 1;
-
-  byte fullMessage[IR_DATAGRAM_LEN];
-  fullMessage[0] = t;
-  memcpy( fullMessage + 1, data, len );
-
-  sendDatagramOnFace( fullMessage, len + 1, face );
-  return 0;
-}
-
-// unpacks message from sendMessage, without including type
-const byte *getMessage( uint8_t f ) {
-  return (msg[f] + 1);
-}
-
-// unpacks message type from sendMessage
-messageType getMessageType( byte f ) { 
-  if ( msgLength[f] == 0 ) return NO_MESSAGE;
-  return msg[f][0];
-}
-
-// STATE SETTING FUNCTIONS
-
-void primaryInit( byte p ) {
-  currentState = PRIMARY;
-  currentPrimary = p;
-  rgbInit();
-}
-
-void setBlank() {
-  currentState = CHIP;
-  memcpy ( undoBuffer, rgb, 3 );
-  rgb[R] = 0;
-  rgb[G] = 0;
-  rgb[B] = 0;
-}
-
-void resetChip() {
-  chipLevel = 0;
-  gameTimer.never();
-  setBlank();
-}
- 
-void randGoalInit() {
-  currentState = GOAL;
-  rgb[R] = random(255);
-  rgb[G] = random(255);
-  rgb[B] = random(255);
-  
-  setEqualized( random(255), random(255), random(255) );
-}
-
-void setEqualized( uint32_t r, uint32_t g, uint32_t b ) {
-    memcpy ( undoBuffer, rgb, 3 );
-    auto big = biggest( r, g, b );
-    rgb[R] = map( r, 0, big, 0, 255 );
-    rgb[G] = map( g, 0, big, 0, 255 );
-    rgb[B] = map( b, 0, big, 0, 255 );
-}
-
-void mixIn ( int32_t r, int32_t g, int32_t b ) {
-  animationStart = millis();
-  animatingMixIn = true;
-
-  int32_t r2 = r + (int32_t)rgb[R];
-  int32_t g2 = g + (int32_t)rgb[G];
-  int32_t b2 = b + (int32_t)rgb[B];
-  
-  setEqualized( r2, g2, b2 );
-}
 
 // MAIN LOOPS
 void setup() {
@@ -391,6 +317,9 @@ void goalLoop() {
 
   // CLICK HANDLING
   switch ( click ) {
+    case SINGLE:
+      goalHidden = !goalHidden;
+      break;
     case DOUBLE:
       randGoalInit();
       break;
@@ -400,9 +329,13 @@ void goalLoop() {
   }
 
   // DISPLAY
-  FOREACH_FACE(f) {
-    Color displayColor = makeColorRGB( rgb[R], rgb[G], rgb[B] );
-    setColorOnFace( displayColor, f );
+  if ( goalHidden ) {
+    setColor( dim( WHITE, 20 ) );
+  } else { 
+    FOREACH_FACE(f) {
+      Color displayColor = makeColorRGB( rgb[R], rgb[G], rgb[B] );
+      setColorOnFace( displayColor, f );
+    }
   }
 
 }
@@ -594,6 +527,96 @@ bool isTriangle() {
   { return true; } else { return false; }
 }
 
+void cyclePrimary() {
+  currentPrimary = ( currentPrimary + 1 ) % CHANNELS;
+  primaryInit(currentPrimary);
+}
+
+void countDownDisplay() {
+}
+
+int32_t biggest ( int32_t r, int32_t g, int32_t b ) {
+  int32_t result = r;
+  if ( g > result ) result = g;
+  if ( b > result ) result = b;
+  return result;
+}
+
+// MESSAGE PASSING FUNCTIONS
+
+// convenience function for sendDatagramOnFace() that includes a message type
+int sendMessage( messageType t, const void *data, byte len , byte face ) { 
+  if ( ( len + 1 ) > IR_DATAGRAM_LEN ) return 1;
+
+  byte fullMessage[IR_DATAGRAM_LEN];
+  fullMessage[0] = t;
+  memcpy( fullMessage + 1, data, len );
+
+  sendDatagramOnFace( fullMessage, len + 1, face );
+  return 0;
+}
+
+// unpacks message from sendMessage, without including type
+const byte *getMessage( uint8_t f ) {
+  return (msg[f] + 1);
+}
+
+// unpacks message type from sendMessage
+messageType getMessageType( byte f ) { 
+  if ( msgLength[f] == 0 ) return NO_MESSAGE;
+  return msg[f][0];
+}
+
+
+// STATE SETTING FUNCTIONS
+void setBlank() {
+  currentState = CHIP;
+  memcpy ( undoBuffer, rgb, 3 );
+  rgbInit();
+}
+
+void resetChip() {
+  chipLevel = 0;
+  gameTimer.never();
+  setBlank();
+}
+ 
+void primaryInit( byte p ) {
+  currentState = PRIMARY;
+  currentPrimary = p;
+  rgbInit();
+}
+
+void randGoalInit() {
+  currentState = GOAL;
+  setEqualized( random(255), random(255), random(255) );
+}
+
+void rgbInit() {
+  for (byte i = 0; i < CHANNELS; i++) {
+    rgb[i] = 0;
+  }
+}
+
+void setEqualized( uint32_t r, uint32_t g, uint32_t b ) {
+    memcpy ( undoBuffer, rgb, 3 );
+    uint32_t big = biggest( r, g, b );
+    rgb[R] = map( r, 0, big, 0, 255 );
+    rgb[G] = map( g, 0, big, 0, 255 );
+    rgb[B] = map( b, 0, big, 0, 255 );
+}
+
+void mixIn ( int32_t r, int32_t g, int32_t b ) {
+  animationStart = millis();
+  animatingMixIn = true;
+
+  int32_t r2 = r + (int32_t)rgb[R];
+  int32_t g2 = g + (int32_t)rgb[G];
+  int32_t b2 = b + (int32_t)rgb[B];
+  
+  setEqualized( r2, g2, b2 );
+}
+
 void makeChipPrimaryPair() {
   resetChip();
 
@@ -612,28 +635,6 @@ void makePrimaryBank() {
   setupMsg = SET_BLUE;
   sendMessage( SET_PRIMARY, &setupMsg, 1, neighbors[1] );
 }
-
-void cyclePrimary() {
-  currentPrimary = ( currentPrimary + 1 ) % CHANNELS;
-  primaryInit(currentPrimary);
-}
-
-void countDownDisplay() {
-}
-
-int32_t biggest ( int32_t r, int32_t g, int32_t b ) {
-  int32_t result = r;
-  if ( g > result ) result = g;
-  if ( b > result ) result = b;
-  return result;
-}
-
-void rgbInit() {
-  for (byte i = 0; i < CHANNELS; i++) {
-    rgb[i] = 0;
-  }
-}
-
 void undo() {
   rgb[R] = undoBuffer[R];
   rgb[G] = undoBuffer[G];
@@ -646,3 +647,4 @@ void startGameTimer() {
   animationStart = millis();
   gameTimer.set(GAMETIMER_MS);
 }
+
