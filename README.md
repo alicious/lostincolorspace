@@ -74,25 +74,34 @@ SET UP:
 * All other players convert their paint chips to random goals and add them to the goals 
 already on the table
 * Each player may choose to randomize one goal
+* Start player begins the game by skipping to step 2 below
 
 GAME PLAY:
 Play passes clockwise around the table. Each turn follows these steps in order:
-1. Touch the paint chip's intake face to a primary.
-2. Dock at a goal. If the chip shows a match, remove the goal and set it aside 
-   as your point, then take another turn immediately (but skip step 1). Otherwise, 
-   leave the chip docked
-3. Choose a goal to be hidden. This may be the same goal that is already hidden.
-4. Pass the turn to your left.
+1. Retrieve the chip from where it is docked, and optionally choose to undo the previous player's move by clicking once
+2. Touch the paint chip's intake face to a primary.
+3. Dock at a goal. If the chip shows a match, remove the goal and set it aside 
+   as your point, then take another turn immediately. If the chip does not match, 
+   leave it docked, and pass the turn to your left.
 
 VICTORY CONDITIONS:
 The first player to collect two goals as points wins the game.
 
-FOR A LONGER GAME:
+VARIANTS:
+*Player Handicaps:*
+Allow one or more "redo" actions in step 2 (i.e. click to undo your own action,
+before trying a different primary face)
+
+*No Random Goals:*
+Start the game by making goals manually - build up a color on a paint chip, 
+Then long press to convert it to a goal. Skip randomizing goals at the end of setup.
+
+*Longer Game:*
 Play with more goals, and with a higher victory condition.
 
 
 ### Colorful Language ###
-*3+ players, with 2 player variant, 2 blinks per player, plus one extra*
+*3+ players (with 2 player variant), 2 blinks per player, plus one extra*
 ///// not yet playtested for more than 2 /////
 
 SET UP:
@@ -124,7 +133,7 @@ without even keeping score if you'd rather not bother). Try playing ten rounds
 and aim for a new high score.
 
 ### Shades of Resistance ###
---Be the shade you want to see in the world--
+> Be the shade you want to see in the world
 *2-4 players, 18?? blinks*
 
 SET UP:
@@ -164,4 +173,4 @@ action. You may not, however, use an extra draw when resolving a test failure.
 ///// VICTORY CONDITIONS TBD, PLAYTESTING IN PROGRESS /////
 
 
-### INSERT **YOUR** GAME HERE ###
+### MAKE UP YOUR OWN GAMES <3 ###
