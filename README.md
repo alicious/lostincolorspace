@@ -44,8 +44,7 @@ any other shape       | cluster of up to 7 blank paint chips
 
 
 ### Color Pop Quiz ###
-*1 or more players*
-*3 blinks per player*
+*1 or more players, 3 blinks per player*
 
 SET UP: 
 * Give each player a hand of one goal, and one primary/chip pair.
@@ -66,8 +65,7 @@ a goal (not necessarily the same goal).
 
 
 ### Paint It Forward ###
-*2-? Players*
-*2 blinks per player, plus 2 extra*
+*2-? Players, 2 blinks per player, plus 2 extra*
 
 SET UP: 
 * Give each player a primary/chip pair
@@ -95,13 +93,12 @@ Play with more goals, and with a higher victory condition.
 
 
 ### Colorful Language ###
-*3+ players, with 2 player variant*
-*2 blinks per player, plus one extra*
-///// not yet playtested /////
+*3+ players, with 2 player variant, 2 blinks per player, plus one extra*
+///// not yet playtested for more than 2 /////
 
 SET UP:
-* Give each player a primary/chip pair, and make hidden random goal (click a goal to 
-hide it, then double click to randomize it while hidden). 
+* Give each player a primary/chip pair, and make a  hidden random goal (click 
+  a goal to hide it, then double click to randomize it while hidden). 
 * Choose a player to be the first active player.
 * Make a pool of ??6?? tokens/pennies/whatsits for scorekeeping.
 
@@ -122,11 +119,14 @@ but not too obvious either).
 VICTORY CONDITIONS:
 Play till the token-whatsit pool is empty. Player with the most whatsits wins.
 
+TWO PLAYER CO-OP:
+Take turns as active player, and share your points (although it's honestly fun
+without even keeping score if you'd rather not bother). Try playing ten rounds
+and aim for a new high score.
 
 ### Shades of Resistance ###
 --Be the shade you want to see in the world--
-*2-4 players*
-*18?? blinks*
+*2-4 players, 18?? blinks*
 
 SET UP:
 Set up the board by making a primary bank (triple click a triangle formation).
