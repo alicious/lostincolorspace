@@ -1,7 +1,7 @@
 # LOST IN COLORSPACE #
-a color blending game set for Move38 Blinks
+A color blending game set for Move38 Blinks
 
-_*quickstart*_: Grab a pair of attached blinks. Triple click one of them.
+**quickstart**: Grab a pair of attached blinks. Triple click one of them.
                 See if you can make some colors, and optionally read about 
                 "Paint Chips" and "Primaries" below
 
@@ -40,12 +40,11 @@ any other shape       | cluster of up to 7 blank paint chips
 
 
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-## A NON EXHAUSTIVE COLLECTION OF POSSIBLE GAMES ##
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+## GAMES ##
 
 
 ### Color Pop Quiz ###
+####1 or more players ####
 SET UP: 
 * Give each player one goal, and one primary/chip pair to keep in hand.
 * On the count of three, long press your paint chips to start the timer and score keeper.
