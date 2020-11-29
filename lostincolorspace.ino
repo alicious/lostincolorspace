@@ -7,7 +7,6 @@
 #define COLOR_MSG_LENGTH ( CHANNELS * sizeof(byte) )
 
 #define GAMETIMER_MS 120000
-//#define GAMETIMER_MS 2000 //testing
 Timer gameTimer;
 
 // BLINK STATES
@@ -87,6 +86,31 @@ const boardInitMsg SET_BLUE           = 1;
 
 byte neighbors[2] = { 7, 7 }; // aka undefined (the "seventh" face)
 byte neighborCount = 0;
+ 
+// MESSAGE PASSING FUNCTIONS
+
+// convenience function for sendDatagramOnFace() that includes a message type
+int __attribute__((noinline)) sendMessage( messageType t, const void *data, byte len , byte face ) { 
+  if ( ( len + 1 ) > IR_DATAGRAM_LEN ) return 1;
+
+  byte fullMessage[IR_DATAGRAM_LEN];
+  fullMessage[0] = t;
+  memcpy( fullMessage + 1, data, len );
+
+  sendDatagramOnFace( fullMessage, len + 1, face );
+  return 0;
+}
+
+// unpacks message from sendMessage, without including type
+const byte __attribute__((noinline)) *getMessage( uint8_t f ) {
+  return (msg[f] + 1);
+}
+
+// unpacks message type from sendMessage
+messageType __attribute__((noinline)) getMessageType( byte f ) { 
+  if ( msgLength[f] == 0 ) return NO_MESSAGE;
+  return msg[f][0];
+}
 
 // MAIN LOOPS
 void setup() {
@@ -236,7 +260,6 @@ void chipLoop() {
       byte phase = animationElapsed/100 + 1;
       FOREACH_FACE(f) {
         if ( ( f == phase ) || ( ( 6 - f ) == phase ) ) {
-          //pulse( WHITE, f );
           setColorOnFace( OFF, f );
         }
         /*
@@ -296,7 +319,9 @@ void primaryLoop() {
 void goalLoop() {
 
   // MESSAGE HANDLING
-  if ( ( winnerDock < 7 ) && ( isValueReceivedOnFaceExpired( winnerDock ) ) ) {
+  if ( ( !goalHidden ) 
+    && ( winnerDock < 7 ) 
+    && ( isValueReceivedOnFaceExpired( winnerDock ) ) ) {
     winnerDock = 7;
     randGoalInit();
   } else {
@@ -307,7 +332,7 @@ void goalLoop() {
         byte result = checkColor( m[R], m[G], m[B] );
         if ( result == CLOSE_ENOUGH ) {
           sendMessage( WIN, NULL, 0, f );
-          winnerDock = f;
+          if ( !goalHidden ) winnerDock = f;
         } else {
           sendMessage( LOSE, &result, 1, f );
         }
@@ -344,7 +369,7 @@ void winnerLoop() {
   
   FOREACH_FACE(f) {
     Color displayColor = makeColorRGB( rgb[R], rgb[G], rgb[B] );
-    if ( ( ( millis()/50 ) % 6 )  == f ) {
+    if ( ( ( millis()/100 ) % 6 )  == f ) {
       setColorOnFace( displayColor, f );
     } else {
       setColorOnFace( OFF, f );
@@ -405,7 +430,11 @@ void scoreboardLoop() {
     } else {
       setColorOnFace( WHITE, ( interval - 6 ) );
     }  
-  }
+  } else if ( chipLevel == MAX_LEVEL ) {
+    FOREACH_FACE(f) {
+      pulse( ORANGE, f );
+    }
+  } 
 }
 
 void countdownLoop() {
@@ -445,11 +474,10 @@ testResult checkColor( byte r, byte g, byte b ) {
   int32_t gdiff = ((int32_t)rgb[G]) - g;
   int32_t bdiff = ((int32_t)rgb[B]) - b;
 
-  //float colorDistance  = sqrt( pow( rdiff, 2 ) + pow( gdiff, 2 ) + pow( bdiff, 2 ) ); 
   int32_t colorDistance = (rdiff * rdiff) + (gdiff * gdiff) + (bdiff * bdiff);
   testResult result;
 
-  if ( ( colorDistance < 7000 ) ) { // 8000 too easy 6000 too hard
+  if ( ( colorDistance < 7000 ) ) { // 8000 too easy, 6000 too hard
     result = CLOSE_ENOUGH;
   } else {
     if ( ( ( gdiff != 0 ) && ( gdiff >= rdiff) && ( gdiff >= bdiff ) )
@@ -476,22 +504,18 @@ byte countNeighbors() {
 }
 
 void boardInit() {
-  if ( neighborCount > 2 ) {
-    return;
-  } else {
-    byte whichNeighbor = 0;
+  byte whichNeighbor = 0;
 
-    FOREACH_FACE(f) { 
-      if ( !isValueReceivedOnFaceExpired(f) ) {
-        neighbors[whichNeighbor] = f;
-        whichNeighbor++; 
-      }
+  FOREACH_FACE(f) { 
+    if ( !isValueReceivedOnFaceExpired(f) && whichNeighbor < 2 ) {
+      neighbors[whichNeighbor] = f;
+      whichNeighbor++; 
     }
-    // make 6 and 0 adjacent in the same clockwise order as other pairs
-    if ( ( neighbors[0] == 0 ) && ( neighbors[1] == 5 ) ) {
-      neighbors[0] = 5;
-      neighbors[1] = 0;
-    }
+  }
+  // make 6 and 0 adjacent in the same clockwise order as other pairs
+  if ( ( neighbors[0] == 0 ) && ( neighbors[1] == 5 ) ) {
+    neighbors[0] = 5;
+    neighbors[1] = 0;
   }
  
   if ( isAlone() ) {
@@ -501,10 +525,10 @@ void boardInit() {
   } else if ( isTriangle() ) {
     makePrimaryBank();
   } else {
-    resetChip(); 
     FOREACH_FACE(f) { 
       sendMessage( RESET_CHIP, NULL, 0, f );
     }
+    resetChip(); 
   }
 
 }
@@ -542,31 +566,6 @@ int32_t biggest ( int32_t r, int32_t g, int32_t b ) {
   return result;
 }
 
-// MESSAGE PASSING FUNCTIONS
-
-// convenience function for sendDatagramOnFace() that includes a message type
-int sendMessage( messageType t, const void *data, byte len , byte face ) { 
-  if ( ( len + 1 ) > IR_DATAGRAM_LEN ) return 1;
-
-  byte fullMessage[IR_DATAGRAM_LEN];
-  fullMessage[0] = t;
-  memcpy( fullMessage + 1, data, len );
-
-  sendDatagramOnFace( fullMessage, len + 1, face );
-  return 0;
-}
-
-// unpacks message from sendMessage, without including type
-const byte *getMessage( uint8_t f ) {
-  return (msg[f] + 1);
-}
-
-// unpacks message type from sendMessage
-messageType getMessageType( byte f ) { 
-  if ( msgLength[f] == 0 ) return NO_MESSAGE;
-  return msg[f][0];
-}
-
 
 // STATE SETTING FUNCTIONS
 void setBlank() {
@@ -589,7 +588,13 @@ void primaryInit( byte p ) {
 
 void randGoalInit() {
   currentState = GOAL;
-  setEqualized( random(255), random(255), random(255) );
+
+  do {
+    byte r = random(255);
+    byte g = random(255);
+    byte b = random(255);
+    setEqualized( random(255), random(255), random(255) );
+  } while( ( rgb[R] + rgb[G] + rgb[B] ) < 300 );
 }
 
 void rgbInit() {
@@ -607,6 +612,7 @@ void setEqualized( uint32_t r, uint32_t g, uint32_t b ) {
 }
 
 void mixIn ( int32_t r, int32_t g, int32_t b ) {
+  if ( ( r == 0 ) && ( g == 0 ) && ( b == 0 ) ) return;
   animationStart = millis();
   animatingMixIn = true;
 
