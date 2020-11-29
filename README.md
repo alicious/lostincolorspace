@@ -77,13 +77,12 @@ already on the table
 
 GAME PLAY:
 Play passes clockwise around the table. Each turn follows these steps in order:
-1. Double click a goal (optional). You may not click the most recently tested goal.
-2. Touch the paint chip's intake face to a primary.
-3. Dock at a goal. If the chip shows a match, remove the goal and set it aside as your point, 
-   then take another turn immediately (but skip step 1). Otherwise, leave the chip docked
-   and pass the turn to your left.
-
-**note** steps 2 & 3 are mandatory, only 1 is optional
+1. Touch the paint chip's intake face to a primary.
+2. Dock at a goal. If the chip shows a match, remove the goal and set it aside 
+   as your point, then take another turn immediately (but skip step 1). Otherwise, 
+   leave the chip docked
+3. Choose a goal to be hidden. This may be the same goal that is already hidden.
+4. Pass the turn to your left.
 
 VICTORY CONDITIONS:
 The first player to collect two goals as points wins the game.
