@@ -20,7 +20,7 @@ In Lost In Colorspace, there are three possible kinds of pieces:
 * **Goals** are random colors to try and match by mixing with paint chips. 
   Docking a paint chip's intake face to a goal will test if the paint chip
   is close enough to pass. A close enough paint chip will do a "win spin" 
-  (and will reset the goal, if not hidden, to a new random color once undocked.) 
+  This will reset the goal to a new random color once the paint chip undocked.
   If the paint chip isn't close enough yet, it will pulse with a hint for what 
   color to try adding next.
   * Click to hide or unhide the goal (you can still test against a hidden goal)
@@ -45,9 +45,10 @@ any other shape       | cluster of up to 7 blank paint chips
 
 ### Color Pop Quiz ###
 *1 or more players*
+*3 blinks per player*
 
 SET UP: 
-* Give each player one goal, and one primary/chip pair to keep in hand.
+* Give each player a hand of one goal, and one primary/chip pair.
 * On the count of three, long press your paint chips to start the timer and score keeper.
 
 GAME PLAY:
@@ -65,20 +66,23 @@ a goal (not necessarily the same goal).
 
 
 ### Paint It Forward ###
+*2-? Players*
+*2 blinks per player, plus 2 extra*
+
 SET UP: 
 * Give each player a primary/chip pair
-* Put two randmom goals in the middle of the table 
+* Put two random goals in the middle of the table 
 * Randomly choose a start player 
 * All other players convert their paint chips to random goals and add them to the goals 
-already on the table, optionally changing a goal to a new random goal as they do so.
+already on the table
+* Each player may choose to randomize one goal
 
 GAME PLAY:
 Play passes clockwise around the table. Each turn follows these steps in order:
 1. Double click a goal (optional). You may not click the most recently tested goal.
-2. Perform exactly one mix in by retrieving the paint chip and touching its 
-   intake face to a primary.
-3. Dock at a goal. If successful, remove the goal and set aside as your point, then
-   take another turn immediately (but skip step 1). Otherwise, leave the chip docked
+2. Touch the paint chip's intake face to a primary.
+3. Dock at a goal. If the chip shows a match, remove the goal and set it aside as your point, 
+   then take another turn immediately (but skip step 1). Otherwise, leave the chip docked
    and pass the turn to your left.
 
 **note** steps 2 & 3 are mandatory, only 1 is optional
@@ -91,7 +95,10 @@ Play with more goals, and with a higher victory condition.
 
 
 ### Colorful Language ###
+*3+ players, with 2 player variant*
+*2 blinks per player, plus one extra*
 ///// not yet playtested /////
+
 SET UP:
 * Give each player a primary/chip pair, and make hidden random goal (click a goal to 
 hide it, then double click to randomize it while hidden). 
@@ -118,6 +125,8 @@ Play till the token-whatsit pool is empty. Player with the most whatsits wins.
 
 ### Shades of Resistance ###
 --Be the shade you want to see in the world--
+*2-4 players*
+*18?? blinks*
 
 SET UP:
 Set up the board by making a primary bank (triple click a triangle formation).
@@ -144,7 +153,7 @@ On your turn, you may perform exactly one of the following three actions:
 2) Move: take a piece from the board and move it to a new location.
 
 3) Test: pull one paint chip from the board, and dock it on one of your goals if there
-is room - up to three chips may be docked on a single goal. If it is successful match,
+is room - up to three chips may be docked on a single goal. If it is a successful match,
 keep it in place as a point. If not successful, you must return the paint chip to the 
 board, with the intake face touching the primary indicated at test failure. 
 If this is not possible, clear it and return it to the pool of blank chips.
