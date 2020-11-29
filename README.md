@@ -20,7 +20,7 @@ In Lost In Colorspace, there are three possible kinds of pieces:
 * **Goals** are random colors to try and match by mixing with paint chips. 
   Docking a paint chip's intake face to a goal will test if the paint chip
   is close enough to pass. A close enough paint chip will do a "win spin" 
-  This will reset the goal to a new random color once the paint chip undocked.
+  This will reset the goal to a new random color once the paint chip is undocked.
   If the paint chip isn't close enough yet, it will pulse with a hint for what 
   color to try adding next.
   * Click to hide or unhide the goal (you can still test against a hidden goal)
@@ -119,10 +119,10 @@ and then tell the other players their clue.
 All other players now make a color following the active player's clue. 
 When all players are ready, they dock at the goal.
 
-Any player who's color was a successful match takes a token from the pool.
-The active player also takes a point, as long as at least one player's color was a
-successful match, but not if **all** players matched. (I.e. make your hint not too hard,
-but not too obvious either).
+Any player whose color was a successful match takes a token from the pool.
+The active player also takes a token, as long as:
+* at least one player's color was a successful match, and
+* not **all** players matched successfully.
 
 VICTORY CONDITIONS:
 Play till the token-whatsit pool is empty. Player with the most whatsits wins.
