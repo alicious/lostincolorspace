@@ -162,11 +162,11 @@ SET UP:
 * Each player makes a number of random hidden goals, depending on player count.  
   (Click a goal to hide it, and double click while hidden to randomize.)  
  
-    Players | Goals  
-    ----------------  
-     2      | 3  
-     3      | 2  
-     4      | 2  
+Players | Goals  
+----------------  
+ 2      | 3  
+ 3      | 2  
+ 4      | 2  
 
 * Players look at their goals, but keep them hidden from other players for the duration   
   of the game. (Single click to hide/unhide goals. If you have some sushi roll cases  
