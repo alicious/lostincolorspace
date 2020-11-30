@@ -163,7 +163,7 @@ SET UP:
   (Click a goal to hide it, and double click while hidden to randomize.)  
  
 Players | Goals  
-----------------  
+--------|-------  
  2      | 3  
  3      | 2  
  4      | 2  
