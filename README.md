@@ -191,25 +191,26 @@ Until the game end is triggered (see below), players perform exactly one of the 
 three actions on their turn. During any action, a player may choose to a perform bonus   
 color draw from an adjacent face whenever adding and/or removing a piece from the board.  
   
-1. Place: add an empty paint chip from the pool to the board, as in Phase 1.  
+1. Move: take a piece from the board and move it to a new location. (It is possible to 
+   use a bonus color draw at both the start and end of a move action.)  
   
-2. Move: take a piece from the board and move it to a new location.   
-  * It is possible to use a bonus color draw at both the start and end of a move action  
-  
-3. Test: pull one paint chip from the board, and dock it on one of your goals.  
+2. Test: pull one paint chip from the board, and dock it on one of your goals.  
   * If the chip is a successful match, keep it in place as a point   
   * If the chip is not a match, you must return it to the board, with the intake face   
   touching the primary indicated at test failure. If this is not possible, clear the   
   chip and return it to the pool of blank chips.  
   * You may not use a bonus color draw when resolving a test failure.  
   * **2 player game:** a maximum of three chips may be docked on a single goal.  
+
+3. Place: add an empty paint chip from the pool (if available) to the board, 
+   as in Phase 1.  
   
 **Game End**  
 As soon as there are only two paint chips remaining on the board and/or in the pool,  
 the game ends, and players count their claimed chips. The highest score wins.  
   
 In the case of a tie, tied players enter a sudden death round with the two chips  
-remaining on the board.  
+remaining on the board.   
   
 VARIANTS:  
   
